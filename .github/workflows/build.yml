@@ -1,0 +1,39 @@
+name: Build QMK firmware
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: qmkfm/qmk_cli
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - keyboard: "splitkb/aurora/sweep"
+            keymap: "freopen"
+
+    steps:
+      - name: Disable git safe directory checks
+        run: git config --global --add safe.directory '*'
+
+      - name: Checkout userspace
+        uses: actions/checkout@v3
+
+      - name: Checkout QMK
+        uses: actions/checkout@v3
+        with:
+          repository: qmk/qmk_firmware
+          submodules: recursive
+          path: qmk_firmware/
+
+      - name: Apply overlay
+        run: cp -ruT overlay qmk_firmware
+
+      - name: Build firmware
+        run: qmk compile -kb "${{ matrix.keyboard }}" -km "${{ matrix.keymap }}"
+
+      - name: Archive firmware
+        uses: actions/upload-artifact@v3
+        continue-on-error: true
+        with:
+          path: qmk_firmware/.build/*.uf2
